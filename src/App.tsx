@@ -57,7 +57,44 @@ const App = () => {
   const [awayScore, setAwayScore] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
-  const calculateTeamStats = (matchList: Match[]): Team[] => {
+  useEffect(() => {
+    const matchOrder = [
+      { home: "ליאור הפטלר", away: "נועם ישראל" },
+      { home: "שחר רוזנפלד", away: "עידן סולטן" },
+      { home: "תומר בקרינג", away: "בן טטנבאום" },
+      { home: "אלון בקרינג", away: "ליאור הפטלר" },
+      { home: "נועם ישראל", away: "שחר רוזנפלד" },
+      { home: "בן טטנבאום", away: "עידן סולטן" },
+      { home: "תומר בקרינג", away: "נועם ישראל" },
+      { home: "אלון בקרינג", away: "שחר רוזנפלד" },
+      { home: "ליאור הפטלר", away: "בן טטנבאום" },
+      { home: "עידן סולטן", away: "נועם ישראל" },
+      { home: "תומר בקרינג", away: "ליאור הפטלר" },
+      { home: "אלון בקרינג", away: "עידן סולטן" },
+      { home: "שחר רוזנפלד", away: "בן טטנבאום" },
+      { home: "תומר בקרינג", away: "אלון בקרינג" },
+      { home: "נועם ישראל", away: "בן טטנבאום" },
+      { home: "ליאור הפטלר", away: "עידן סולטן" },
+      { home: "שחר רוזנפלד", away: "תומר בקרינג" },
+      { home: "אלון בקרינג", away: "נועם ישראל" },
+      { home: "ליאור הפטלר", away: "שחר רוזנפלד" },
+      { home: "עידן סולטן", away: "תומר בקרינג" },
+      { home: "בן טטנבאום", away: "אלון בקרינג" }
+    ];
+
+    const initialMatches = matchOrder.map((match, index) => ({
+      id: `match-${index}`,
+      homeTeam: match.home,
+      awayTeam: match.away,
+      homeScore: null,
+      awayScore: null,
+      played: false
+    }));
+
+    setMatches(initialMatches);
+  }, []);
+
+  useEffect(() => {
     const newTeams = TEAM_NAMES.map(name => ({
       name,
       points: 0,
@@ -66,7 +103,7 @@ const App = () => {
       gamesPlayed: 0
     }));
 
-    matchList.forEach(match => {
+    matches.forEach(match => {
       if (match.played && match.homeScore !== null && match.awayScore !== null) {
         const homeTeam = newTeams.find(t => t.name === match.homeTeam)!;
         const awayTeam = newTeams.find(t => t.name === match.awayTeam)!;
@@ -90,42 +127,15 @@ const App = () => {
       }
     });
 
-    return newTeams.sort((a, b) => 
+    setTeams(newTeams.sort((a, b) => 
       b.points - a.points || 
       (b.goalsFor - b.goalsAgainst) - (a.goalsFor - a.goalsAgainst)
-    );
-  };
-
-  useEffect(() => {
-    const initialMatches = TEAM_NAMES.flatMap((homeTeam, i) =>
-      TEAM_NAMES.slice(i + 1).map((awayTeam, j) => ({
-        id: `${i}-${j}`,
-        homeTeam,
-        awayTeam,
-        homeScore: null,
-        awayScore: null,
-        played: false
-      }))
-    );
-
-    setMatches(initialMatches);
-    setTeams(calculateTeamStats(initialMatches));
-
-    const savedAdminState = localStorage.getItem('isAdmin');
-    if (savedAdminState === 'true') {
-      setIsAdmin(true);
-    }
-  }, []);
-
-  // Effect to update teams whenever matches change
-  useEffect(() => {
-    setTeams(calculateTeamStats(matches));
+    ));
   }, [matches]);
 
   const handleLogin = () => {
     if (password === ADMIN_PASSWORD) {
       setIsAdmin(true);
-      localStorage.setItem('isAdmin', 'true');
       setLoginDialogOpen(false);
       setPassword("");
       setLoginError("");
@@ -137,7 +147,6 @@ const App = () => {
 
   const handleLogout = () => {
     setIsAdmin(false);
-    localStorage.removeItem('isAdmin');
     showNotification('התנתקת בהצלחה');
   };
 
@@ -176,7 +185,6 @@ const App = () => {
       setLoading(false);
     }
   };
-
 
   const handleMatchClick = (match: Match) => {
     if (isAdmin) {
@@ -334,7 +342,8 @@ const App = () => {
             <Trophy className="text-purple-500" />
             <h3 className="font-bold">היעיל ביותר</h3>
           </div>
-          {bestRatio && (<>
+          {bestRatio && (
+            <>
               <p className="text-lg font-medium">{bestRatio.name}</p>
               <p className="text-3xl font-bold text-purple-500">
                 {(bestRatio.goalsFor / (bestRatio.gamesPlayed || 1)).toFixed(1)}
