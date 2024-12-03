@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Users, Table2, Settings, Award, TrendingUp, LogIn, LogOut, Trash2 } from 'lucide-react';
-import {
-  Button,
-  Input,
-  Alert,
-  AlertDescription,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from './components/ui/base-components';
+import { Trophy, Users, Table2, Settings, Award, TrendingUp, LogIn, LogOut, Trash2, Calendar, Activity, BarChart2 } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
-// Types
+
+const TEAM_NAMES = [
+  "שחר רוזנפלד",
+  "תומר בקרינג",
+  "ליאור הפטלר",
+  "נועם ישראל",
+  "אלון בקרינג",
+  "בן טטנבאום",
+  "עידן סולטן"
+];
+
 interface Team {
   name: string;
   points: number;
@@ -29,34 +29,21 @@ interface Match {
   awayScore: number | null;
   played: boolean;
   date?: string;
+  round?: number;
 }
 
-const TEAM_NAMES = [
-  "שחר רוזנפלד",
-  "תומר בקרינג",
-  "ליאור הפטלר",
-  "נועם ישראל",
-  "אלון בקרינג",
-  "בן טטנבאום",
-  "עידן סולטן"
-];
-
-const ADMIN_PASSWORD = "1906";
-
-const App = () => {
+export default function EnhancedApp() {
+  const [activeTab, setActiveTab] = useState('table');
   const [teams, setTeams] = useState<Team[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
-  const [activeTab, setActiveTab] = useState<'table' | 'matches' | 'stats'>('table');
-  const [notification, setNotification] = useState<string | null>(null);
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [password, setPassword] = useState("");
-  const [loginError, setLoginError] = useState("");
-  const [homeScore, setHomeScore] = useState<string>("");
-  const [awayScore, setAwayScore] = useState<string>("");
-  const [loading, setLoading] = useState(false);
-
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [homeScore, setHomeScore] = useState("");
+  const [awayScore, setAwayScore] = useState("");
+  
+  // Initialize matches
   useEffect(() => {
     const matchOrder = [
       { home: "ליאור הפטלר", away: "נועם ישראל" },
@@ -88,12 +75,14 @@ const App = () => {
       awayTeam: match.away,
       homeScore: null,
       awayScore: null,
-      played: false
+      played: false,
+      round: Math.floor(index / 3) + 1
     }));
 
     setMatches(initialMatches);
   }, []);
 
+  // Initialize teams and calculate stats
   useEffect(() => {
     const newTeams = TEAM_NAMES.map(name => ({
       name,
@@ -133,355 +122,358 @@ const App = () => {
     ));
   }, [matches]);
 
-  const handleLogin = () => {
-    if (password === ADMIN_PASSWORD) {
-      setIsAdmin(true);
-      setLoginDialogOpen(false);
-      setPassword("");
-      setLoginError("");
-      showNotification('התחברת בהצלחה כמנהל');
-    } else {
-      setLoginError("סיסמה שגויה");
-    }
-  };
-
-  const handleLogout = () => {
-    setIsAdmin(false);
-    showNotification('התנתקת בהצלחה');
-  };
-
-  const updateMatch = async (match: Match, newHomeScore: number | null, newAwayScore: number | null, played: boolean) => {
-    if (!isAdmin) return;
-
-    setLoading(true);
-    try {
-      const updatedMatch = {
-        ...match,
-        homeScore: newHomeScore,
-        awayScore: newAwayScore,
-        played,
-        date: played ? new Date().toISOString() : undefined
-      };
-
-      setMatches(prevMatches => {
-        const newMatches = prevMatches.map(m => 
-          m.id === match.id ? updatedMatch : m
-        );
-        return newMatches.sort((a, b) => {
-          if (a.played && !b.played) return -1;
-          if (!a.played && b.played) return 1;
-          return new Date(b.date || '').getTime() - new Date(a.date || '').getTime();
-        });
-      });
-
-      setSelectedMatch(null);
-      setHomeScore("");
-      setAwayScore("");
-      showNotification(played ? 'התוצאה נשמרה בהצלחה!' : 'התוצאה נמחקה בהצלחה!');
-    } catch (error) {
-      console.error('Error updating match:', error);
-      showNotification('אירעה שגיאה בעדכון התוצאה');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Sample performance data
+  const performanceData = teams.map(team => ({
+    name: team.name,
+    points: team.points,
+    goals: team.goalsFor
+  }));
 
   const handleMatchClick = (match: Match) => {
-    if (isAdmin) {
-      setSelectedMatch(match);
-      if (match.played && match.homeScore !== null && match.awayScore !== null) {
-        setHomeScore(match.homeScore.toString());
-        setAwayScore(match.awayScore.toString());
-      } else {
-        setHomeScore("");
-        setAwayScore("");
-      }
+    if (!isAdmin) return;
+    setSelectedMatch(match);
+    if (match.played && match.homeScore !== null && match.awayScore !== null) {
+      setHomeScore(match.homeScore.toString());
+      setAwayScore(match.awayScore.toString());
+    } else {
+      setHomeScore("");
+      setAwayScore("");
     }
   };
 
-  const showNotification = (message: string) => {
-    setNotification(message);
-    setTimeout(() => setNotification(null), 3000);
+  const handleMatchUpdate = () => {
+    if (!selectedMatch || !homeScore || !awayScore) return;
+
+    const updatedMatch = {
+      ...selectedMatch,
+      homeScore: parseInt(homeScore),
+      awayScore: parseInt(awayScore),
+      played: true,
+      date: new Date().toISOString()
+    };
+
+    setMatches(matches.map(m => m.id === selectedMatch.id ? updatedMatch : m));
+    setSelectedMatch(null);
   };
 
-  // Components
-  const TabButton = ({ tab, current, icon: Icon, label }: { tab: string, current: string, icon: any, label: string }) => (
-    <button
-      onClick={() => setActiveTab(tab as any)}
-      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-        tab === current ? 'bg-blue-500 text-white' : 'hover:bg-blue-100'
-      }`}
-      aria-selected={tab === current}
-      role="tab"
-    >
-      <Icon size={20} />
-      <span>{label}</span>
-    </button>
-  );
+  const handleMatchDelete = () => {
+    if (!selectedMatch) return;
 
-  const LeagueTable = () => (
-    <div className="overflow-x-auto bg-white rounded-lg shadow" role="region" aria-label="טבלת ליגה">
-      <table className="w-full text-right">
-        <thead className="bg-gray-50">
-          <tr>
-            <th scope="col" className="px-6 py-3">דירוג</th>
-            <th scope="col" className="px-6 py-3">שחקן</th>
-            <th scope="col" className="px-6 py-3">נקודות</th>
-            <th scope="col" className="px-6 py-3">משחקים</th>
-            <th scope="col" className="px-6 py-3">יחס שערים</th>
-            <th scope="col" className="px-6 py-3">הפרש</th>
-          </tr>
-        </thead>
-        <tbody>
-          {teams.map((team, index) => (
-            <tr 
-              key={team.name} 
-              className={`${index % 2 === 0 ? 'bg-gray-50' : ''} ${
-                index < 3 ? 'font-bold' : ''
-              }`}
-            >
-              <td className="px-6 py-4">{index + 1}</td>
-              <td className="px-6 py-4">{team.name}</td>
-              <td className="px-6 py-4">{team.points}</td>
-              <td className="px-6 py-4">{team.gamesPlayed}</td>
-              <td className="px-6 py-4">{team.goalsFor}:{team.goalsAgainst}</td>
-              <td className="px-6 py-4">{team.goalsFor - team.goalsAgainst}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+    const updatedMatch = {
+      ...selectedMatch,
+      homeScore: null,
+      awayScore: null,
+      played: false,
+      date: undefined
+    };
 
-  const MatchList = () => (
-    <div className="space-y-4">
-      {matches.map(match => (
-        <div
-          key={match.id}
-          onClick={() => handleMatchClick(match)}
-          className={`p-4 bg-white rounded-lg shadow transition ${
-            isAdmin ? 'cursor-pointer hover:bg-blue-50' : ''
-          } ${match.played ? 'border-l-4 border-green-500' : ''}`}
-          role="button"
-          tabIndex={isAdmin ? 0 : undefined}
-          aria-label={`משחק בין ${match.homeTeam} ל${match.awayTeam}`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex-1 text-right font-medium">{match.homeTeam}</div>
-            <div className="px-4 font-bold">
-              {match.played 
-                ? `${match.homeScore}:${match.awayScore}`
-                : 'טרם שוחק'}
-            </div>
-            <div className="flex-1 text-left font-medium">{match.awayTeam}</div>
-          </div>
-          {match.played && match.date && (
-            <div className="text-sm text-gray-500 text-center mt-2">
-              {new Date(match.date).toLocaleDateString('he-IL')}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-
-  const Stats = () => {
-    const topScorer = [...teams].sort((a, b) => b.goalsFor - a.goalsFor)[0];
-    const bestDefense = [...teams].sort((a, b) => a.goalsAgainst - b.goalsAgainst)[0];
-    const mostGames = [...teams].sort((a, b) => b.gamesPlayed - a.gamesPlayed)[0];
-    const bestRatio = [...teams].sort((a, b) => 
-      (b.goalsFor / (b.gamesPlayed || 1)) - (a.goalsFor / (a.gamesPlayed || 1))
-    )[0];
-
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
-          <div className="flex items-center gap-2 mb-4">
-            <Award className="text-yellow-500" />
-            <h3 className="font-bold">מלך השערים</h3>
-          </div>
-          {topScorer && (
-            <>
-              <p className="text-lg font-medium">{topScorer.name}</p>
-              <p className="text-3xl font-bold text-yellow-500">{topScorer.goalsFor} שערים</p>
-              <p className="text-sm text-gray-500">ב-{topScorer.gamesPlayed} משחקים</p>
-            </>
-          )}
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="text-green-500" />
-            <h3 className="font-bold">ההגנה הטובה ביותר</h3>
-          </div>
-          {bestDefense && (
-            <>
-              <p className="text-lg font-medium">{bestDefense.name}</p>
-              <p className="text-3xl font-bold text-green-500">{bestDefense.goalsAgainst} שערים</p>
-              <p className="text-sm text-gray-500">ספג ב-{bestDefense.gamesPlayed} משחקים</p>
-            </>
-          )}
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
-          <div className="flex items-center gap-2 mb-4">
-            <Table2 className="text-blue-500" />
-            <h3 className="font-bold">הכי הרבה משחקים</h3>
-          </div>
-          {mostGames && (
-            <>
-              <p className="text-lg font-medium">{mostGames.name}</p>
-              <p className="text-3xl font-bold text-blue-500">{mostGames.gamesPlayed} משחקים</p>
-              <p className="text-sm text-gray-500">{mostGames.points} נקודות</p>
-            </>
-          )}
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
-          <div className="flex items-center gap-2 mb-4">
-            <Trophy className="text-purple-500" />
-            <h3 className="font-bold">היעיל ביותר</h3>
-          </div>
-          {bestRatio && (
-            <>
-              <p className="text-lg font-medium">{bestRatio.name}</p>
-              <p className="text-3xl font-bold text-purple-500">
-                {(bestRatio.goalsFor / (bestRatio.gamesPlayed || 1)).toFixed(1)}
-              </p>
-              <p className="text-sm text-gray-500">שערים למשחק</p>
-            </>
-          )}
-        </div>
-      </div>
-    );
+    setMatches(matches.map(m => m.id === selectedMatch.id ? updatedMatch : m));
+    setSelectedMatch(null);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
       <div className="max-w-7xl mx-auto p-4" dir="rtl">
-        <header className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <h1 className="text-2xl font-bold text-blue-600">ליגת החברים</h1>
-            <div className="flex gap-4">
-              <TabButton tab="table" current={activeTab} icon={Trophy} label="טבלה" />
-              <TabButton tab="matches" current={activeTab} icon={Users} label="משחקים" />
-              <TabButton tab="stats" current={activeTab} icon={Settings} label="סטטיסטיקות" />
+        {/* Header */}
+        <header className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg p-6 mb-8">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-6">
+            <div className="flex flex-col items-center sm:items-start">
+              <h1 className="text-3xl font-bold text-blue-600">
+                טורניר השמואלים השני
+              </h1>
+              <p className="text-gray-600 mt-2">2024 עונת</p>
             </div>
+            
+            {/* Navigation Tabs */}
+            <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+              {[
+                { id: 'table', icon: Trophy, label: 'טבלה' },
+                { id: 'matches', icon: Users, label: 'משחקים' },
+                { id: 'stats', icon: BarChart2, label: 'סטטיסטיקות' }
+              ].map(({ id, icon: Icon, label }) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveTab(id)}
+                  className={`
+                    flex items-center gap-2 px-4 py-2 rounded-md transition
+                    ${activeTab === id 
+                      ? 'bg-white shadow-sm text-blue-600' 
+                      : 'hover:bg-white/50 text-gray-600'
+                    }
+                  `}
+                >
+                  <Icon size={18} />
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Admin Button */}
             <button
-              onClick={() => isAdmin ? handleLogout() : setLoginDialogOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition"
-              aria-label={isAdmin ? "התנתק" : "התחבר כמנהל"}
+              className={`
+                flex items-center gap-2 px-4 py-2 rounded-lg transition
+                ${isAdmin 
+                  ? 'bg-red-100 text-red-600 hover:bg-red-200' 
+                  : 'bg-blue-500 text-white hover:bg-blue-600'
+                }
+              `}
+              onClick={() => isAdmin ? setIsAdmin(false) : setLoginDialogOpen(true)}
             >
-              {isAdmin ? <LogOut size={20} /> : <LogIn size={20} />}
-              <span>{isAdmin ? "התנתק" : "התחבר כמנהל"}</span>
+              {isAdmin ? <LogOut size={18} /> : <LogIn size={18} />}
+              <span>{isAdmin ? "התנתק" : "התחבר"}</span>
             </button>
           </div>
         </header>
 
-        {notification && (
-          <Alert className="fixed top-4 left-4 right-4 max-w-md mx-auto z-50 animate-slide-down">
-            <AlertDescription>{notification}</AlertDescription>
-          </Alert>
-        )}
-
-        <Dialog open={loginDialogOpen} onOpenChange={setLoginDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>התחברות מנהל</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Input
-                type="password"
-                placeholder="סיסמה"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-                className="text-right"
-              />
-              {loginError && (
-                <p className="text-red-500 text-sm text-right">{loginError}</p>
-              )}
+        {/* Main Content */}
+        <main className="space-y-6">
+          {/* Table View */}
+          {activeTab === 'table' && (
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h2 className="text-xl font-bold mb-4">טבלת הליגה</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="p-4 text-right">דירוג</th>
+                      <th className="p-4 text-right">שחקן</th>
+                      <th className="p-4 text-center">נק'</th>
+                      <th className="p-4 text-center">מש'</th>
+                      <th className="p-4 text-center">הבקעות</th>
+                      <th className="p-4 text-center">ספיגות</th>
+                      <th className="p-4 text-center">הפרש</th>
+                      <th className="p-4 text-center">ניצחון%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {teams.map((team, index) => (
+                      <tr 
+                        key={team.name}
+                        className={`
+                          border-b transition hover:bg-gray-50
+                          ${index < 3 ? 'font-bold' : ''}
+                          ${index === 0 ? 'bg-yellow-50' : ''}
+                        `}
+                      >
+                        <td className="p-4">{index + 1}</td>
+                        <td className="p-4">{team.name}</td>
+                        <td className="p-4 text-center">{team.points}</td>
+                        <td className="p-4 text-center">{team.gamesPlayed}</td>
+                        <td className="p-4 text-center text-green-600">{team.goalsFor}</td>
+                        <td className="p-4 text-center text-red-600">{team.goalsAgainst}</td>
+                        <td className="p-4 text-center">{team.goalsFor - team.goalsAgainst}</td>
+                        <td className="p-4 text-center">
+                          {team.gamesPlayed ? ((team.points / (team.gamesPlayed * 3)) * 100).toFixed(1) : "0"}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <DialogFooter>
-              <Button onClick={handleLogin} className="w-full">התחבר</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          )}
 
-        <Dialog open={!!selectedMatch} onOpenChange={() => setSelectedMatch(null)}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>
-                {selectedMatch?.played ? 'עריכת תוצאת משחק' : 'הזנת תוצאת משחק'}
-              </DialogTitle>
-            </DialogHeader>
-            {selectedMatch && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-7 items-center gap-4">
-                  <div className="col-span-3 text-right font-medium">
-                    {selectedMatch.homeTeam}
-                  </div>
-                  <Input
-                    type="number"
-                    min="0"
-                    className="col-span-1 text-center"
-                    value={homeScore}
-                    onChange={(e) => setHomeScore(e.target.value)}
-                  />
-                  <Input
-                    type="number"
-                    min="0"
-                    className="col-span-1 text-center"
-                    value={awayScore}
-                    onChange={(e) => setAwayScore(e.target.value)}
-                  />
-                  <div className="col-span-2 text-right font-medium">
-                    {selectedMatch.awayTeam}
+          {/* Matches View */}
+          {activeTab === 'matches' && (
+            <div className="grid gap-6">
+              {matches.map((match) => (
+                <div
+                  key={match.id}
+                  onClick={() => handleMatchClick(match)}
+                  className={`
+                    bg-white rounded-xl shadow-lg p-6 transition hover:shadow-xl
+                    ${match.played ? 'border-l-4 border-green-500' : ''}
+                    ${isAdmin ? 'cursor-pointer' : ''}
+                  `}
+                >
+                  <div className="grid grid-cols-3 gap-4 items-center">
+                    <div className="text-right">
+                      <p className="font-semibold text-lg">{match.homeTeam}</p>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold">
+                        {match.played 
+                          ? `${match.homeScore} : ${match.awayScore}`
+                          : 'טרם שוחק'
+                        }
+                      </div>
+                      {match.date && (
+                        <div className="text-sm text-gray-500 mt-2">
+                          {new Date(match.date).toLocaleDateString('he-IL')}
+                        </div>
+                      )}
+                      <div className="text-sm text-gray-500 mt-1">
+                        סיבוב {match.round}
+                      </div>
+                    </div>
+                    <div className="text-left">
+                      <p className="font-semibold text-lg">{match.awayTeam}</p>
+                    </div>
                   </div>
                 </div>
-                <DialogFooter className="sm:justify-between">
-                  {selectedMatch.played && (
-                    <Button
-                      variant="secondary"
-                      onClick={() => updateMatch(selectedMatch, null, null, false)}
-                      disabled={loading}
-                      className="gap-2 bg-red-100 text-red-600 hover:bg-red-200 border-red-200"
-                    >
-                      <Trash2 size={16} />
-                      מחק תוצאה
-                    </Button>
-                  )}
-                  <Button
-                    variant="primary"
-                    onClick={() => {
-                      if (homeScore && awayScore) {
-                        updateMatch(
-                          selectedMatch,
-                          parseInt(homeScore),
-                          parseInt(awayScore),
-                          true
-                        );
-                      }
-                    }}
-                    disabled={!homeScore || !awayScore || loading}
-                    className="gap-2"
-                  >
-                    {loading ? 'מעדכן...' : 'שמור תוצאה'}
-                  </Button>
-                </DialogFooter>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
+              ))}
+            </div>
+          )}
 
-        <main className="space-y-6">
-          {activeTab === 'table' && <LeagueTable />}
-          {activeTab === 'matches' && <MatchList />}
-          {activeTab === 'stats' && <Stats />}
+          {/* Stats View */}
+          {activeTab === 'stats' && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                {[
+                  { 
+                    title: "מלך השערים",
+                    icon: <Trophy className="text-yellow-500" />,
+                    data: teams[0],
+                    value: teams[0]?.goalsFor || 0,
+                    subtitle: "שערים"
+                  },
+                  {
+                    title: "ההגנה הטובה",
+                    icon: <Activity className="text-green-500" />,
+                    data: [...teams].sort((a, b) => a.goalsAgainst - b.goalsAgainst)[0],
+                    value: teams[0]?.goalsAgainst || 0,
+                    subtitle: "ספיגות"
+                  },
+                  {
+                    title: "היעיל ביותר",
+                    icon: <TrendingUp className="text-blue-500" />,
+                    data: [...teams].sort((a, b) => 
+                      (b.goalsFor / (b.gamesPlayed || 1)) - (a.goalsFor / (a.gamesPlayed || 1))
+                    )[0],
+                    value: teams[0] ? (teams[0].goalsFor / (teams[0].gamesPlayed || 1)).toFixed(2) : "0",
+                    subtitle: "שערים למשחק"
+                  },
+                  {
+                    title: "מלך הנקודות",
+                    icon: <Award className="text-purple-500" />,
+                    data: teams[0],
+                    value: teams[0]?.points || 0,
+                    subtitle: "נקודות"
+                  }
+                ].map((stat, index) => (
+                  <div key={index} className="bg-white rounded-xl shadow-lg p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      {stat.icon}
+                      <h3 className="font-semibold">{stat.title}</h3>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-lg font-medium">{stat.data?.name || "אין נתונים"}</p>
+                      <p className="text-3xl font-bold">{stat.value}</p><p className="text-sm text-gray-500">{stat.subtitle}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-white rounded-xl shadow-lg p-6 mt-6">
+                <h2 className="text-xl font-bold mb-4">מגמת נקודות</h2>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={performanceData}>
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="points" stroke="#3b82f6" name="נקודות" />
+                      <Line type="monotone" dataKey="goals" stroke="#10b981" name="שערים" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </>
+          )}
         </main>
       </div>
+
+      {/* Login Dialog */}
+      {loginDialogOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold mb-4">התחברות מנהל</h2>
+            <input
+              type="password"
+              placeholder="סיסמה"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && password === "1906" && setIsAdmin(true)}
+              className="w-full p-2 border rounded-lg mb-4 text-right"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+                onClick={() => setLoginDialogOpen(false)}
+              >
+                ביטול
+              </button>
+              <button
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                onClick={() => {
+                  if (password === "1906") {
+                    setIsAdmin(true);
+                    setLoginDialogOpen(false);
+                    setPassword("");
+                  }
+                }}
+              >
+                התחבר
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Match Update Dialog */}
+      {selectedMatch && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold mb-4">
+              {selectedMatch.played ? 'עריכת תוצאה' : 'הזנת תוצאה'}
+            </h2>
+            <div className="grid grid-cols-7 gap-4 items-center mb-6">
+              <div className="col-span-3 text-right">{selectedMatch.homeTeam}</div>
+              <input
+                type="number"
+                min="0"
+                value={homeScore}
+                onChange={(e) => setHomeScore(e.target.value)}
+                className="col-span-1 p-2 border rounded-lg text-center"
+              />
+              <input
+                type="number"
+                min="0"
+                value={awayScore}
+                onChange={(e) => setAwayScore(e.target.value)}
+                className="col-span-1 p-2 border rounded-lg text-center"
+              />
+              <div className="col-span-2 text-right">{selectedMatch.awayTeam}</div>
+            </div>
+            <div className="flex justify-between">
+              {selectedMatch.played && (
+                <button
+                  onClick={handleMatchDelete}
+                  className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
+                >
+                  <Trash2 size={16} className="inline-block mr-2" />
+                  מחק תוצאה
+                </button>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSelectedMatch(null)}
+                  className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+                >
+                  ביטול
+                </button>
+                <button
+                  onClick={handleMatchUpdate}
+                  disabled={!homeScore || !awayScore}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                >
+                  שמור
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
-
-export default App;
+}

@@ -1,0 +1,20 @@
+{
+	"geolocation": {
+		"data": {
+			"city": "Tel Aviv",
+			"country": {
+				"code": "IL",
+				"name": "Israel"
+			},
+			"subdivision": {
+				"code": "TA",
+				"name": "Tel Aviv"
+			},
+			"timezone": "Asia/Jerusalem",
+			"latitude": 32.0803,
+			"longitude": 34.7805
+		},
+		"timestamp": 1733178822149
+	},
+	"siteId": "9b2ad2f2-34dc-4903-9dcd-8de4937d10a4"
+}
